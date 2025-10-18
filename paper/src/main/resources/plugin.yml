@@ -1,0 +1,6 @@
+name: ecobridge
+version: '1.0-SNAPSHOT'
+main: digital.proona.ecobridge.paper.EcoBridgePlugin
+api-version: '1.21'
+folia-supported: true
+depend: [runeLib, Vault]
