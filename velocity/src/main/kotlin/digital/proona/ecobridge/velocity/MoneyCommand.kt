@@ -5,6 +5,7 @@ import com.velocitypowered.api.proxy.Player
 import digital.proona.ecobridge.economy.PlayerEconomy
 import digital.proona.redisClient.RuneRedisAPI
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.format.TextColor
 import java.util.UUID
 
@@ -28,32 +29,54 @@ class MoneyCommand(private val plugin: EcoBridgeVelocityPlugin) : SimpleCommand 
                 )
             }
 
-            args.size == 1 && args[0].equals("순위", ignoreCase = true) -> {
-                val top = PlayerEconomy.getTopBalances(10)
-                source.sendMessage(Component.text("│ 돈 순위 TOP 10", TextColor.color(0x00BFFF)))
-                if (top.isEmpty()) {
-                    source.sendMessage(Component.text("│ 순위 데이터가 없습니다.", TextColor.color(0xAAAAAA)))
+            args.size == 1 && args[0].equals("순위", ignoreCase = true) || (args.size == 2 && args[0].equals("순위", ignoreCase = true)) -> {
+                val top = PlayerEconomy.getTopBalances()
+                val pageSize = 10
+                val totalPages = maxOf((top.size + pageSize - 1) / pageSize, 1)
+
+                val inputPage = args.getOrNull(1)?.toIntOrNull() ?: 1
+                val page = inputPage.coerceIn(1, totalPages)
+
+                if (inputPage != page) {
+                    source.sendMessage(Component.text("│ 존재하지 않는 페이지입니다. 마지막 페이지 : $totalPages", TextColor.color(0xFF0000)))
                     return
                 }
 
-                top.forEachIndexed { index, (uuid, money) ->
+                val startIndex = (page - 1) * pageSize
+                val endIndex = minOf(startIndex + pageSize, top.size)
+                val pageList = if (startIndex < top.size) top.subList(startIndex, endIndex) else emptyList()
+
+                source.sendMessage(Component.text("│ 돈 순위 TOP $page (${page}/${totalPages})", TextColor.color(0x00BFFF)))
+                pageList.forEachIndexed { index, (uuid, money) ->
                     val playerName = plugin.server.getPlayer(uuid).map { it.username }
                         .orElseGet {
                             RuneRedisAPI.finder("rune", "player_names", uuid.toString()).getAll()?.get("name")
                                 ?: uuid.toString()
                         }
 
-                    val color = when (index) {
+                    val color = when (startIndex + index) {
                         0 -> TextColor.color(0xFFD700)
                         1 -> TextColor.color(0xC0C0C0)
                         2 -> TextColor.color(0xCD7F32)
                         else -> TextColor.color(0xFFFFFF)
                     }
 
-                    source.sendMessage(
-                        Component.text("│ ${index + 1}. $playerName - $money 원", color)
-                    )
+                    source.sendMessage(Component.text("│ ${startIndex + index + 1}. $playerName - $money 원", color))
                 }
+
+                val previousPage = page-1
+                val nextPage = page+1
+
+                source.sendMessage(Component.text(""))
+                source.sendMessage(
+                    Component.text("│ ")
+                        .append(Component.text("◀ 이전", TextColor.color(0x00FF00))
+                            .clickEvent(ClickEvent.runCommand("/돈 순위 $previousPage")))
+                        .append(Component.text(" | "))
+                        .append(Component.text("다음 ▶", TextColor.color(0x00FF00))
+                            .clickEvent(ClickEvent.runCommand("/돈 순위 $nextPage")))
+                )
+                source.sendMessage(Component.text(""))
             }
 
             args.size >= 2 && args[0].equals("보내기", ignoreCase = true) -> {
@@ -123,6 +146,7 @@ class MoneyCommand(private val plugin: EcoBridgeVelocityPlugin) : SimpleCommand 
                         .filter { it.startsWith(args[1], ignoreCase = true) }
                 } else emptyList()
             }
+
             else -> emptyList()
         }
     }
