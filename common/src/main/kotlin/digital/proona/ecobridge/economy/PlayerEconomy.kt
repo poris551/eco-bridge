@@ -9,35 +9,28 @@ object PlayerEconomy {
     private const val SET_NAME = "playerdata"
 
     fun getBalance(uuid: UUID): Int {
-        val data = RuneRedisAPI.finder(NAMESPACE, SET_NAME, uuid.toString()).getAll() ?: emptyMap()
-        return data["money"]?.toIntOrNull() ?: 0
+        return RuneRedisAPI.hgetInt(NAMESPACE, SET_NAME, uuid.toString(), "money") ?: 0
     }
 
-    fun setBalance(uuid: UUID, amount: Int, publishUpdate: Boolean = true) {
-        RuneRedisAPI.save(NAMESPACE, SET_NAME, uuid.toString(), mapOf("money" to amount.toString()))
-//        if (publishUpdate) {
-//            RuneRedisAPI.publish("economy:balance_update", "$uuid:money=$amount")
-//        }
+    fun setBalance(uuid: UUID, amount: Int) {
+        RuneRedisAPI.hset(NAMESPACE, SET_NAME, uuid.toString(), "money", amount)
     }
 
-    fun addBalance(uuid: UUID, amount: Int) : Int {
-        val current = getBalance(uuid)
-        setBalance(uuid, current + amount)
-        return current+amount
+    fun addBalance(uuid: UUID, amount: Int): Int {
+        return RuneRedisAPI.hincr(NAMESPACE, SET_NAME, uuid.toString(), "money", amount)
     }
 
     fun removeBalance(uuid: UUID, amount: Int): Boolean {
-        val current = getBalance(uuid)
-        if (current < amount) return false
-        setBalance(uuid, current - amount)
-        return true
+        val newBalance = RuneRedisAPI.hincr(NAMESPACE, SET_NAME, uuid.toString(), "money", -amount)
+        return if (newBalance < 0) {
+            RuneRedisAPI.hincr(NAMESPACE, SET_NAME, uuid.toString(), "money", amount)
+            false
+        } else true
     }
 
     fun getTopBalances(limit: Int = 10): List<Pair<UUID, Int>> {
-        val keys = RuneRedisAPI.getKeys(NAMESPACE, SET_NAME)
-        return keys.mapNotNull { key ->
-            val uuidStr = key.substringAfterLast(":")
-            val uuid = try { UUID.fromString(uuidStr) } catch (e: Exception) { null } ?: return@mapNotNull null
+        return RuneRedisAPI.getKeys(NAMESPACE, SET_NAME).mapNotNull { key ->
+            val uuid = runCatching { UUID.fromString(key.substringAfterLast(":")) }.getOrNull() ?: return@mapNotNull null
             uuid to getBalance(uuid)
         }.sortedByDescending { it.second }
             .take(limit)
