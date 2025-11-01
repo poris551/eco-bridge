@@ -8,7 +8,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("digital.proona:redis-client:1.0")
+    compileOnly("digital.proona:infinispan-client:1.0")
     compileOnly("digital.proona:rune-lib:1.0")
 }
 

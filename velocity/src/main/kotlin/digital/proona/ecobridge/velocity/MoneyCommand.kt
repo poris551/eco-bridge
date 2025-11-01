@@ -2,8 +2,8 @@ package digital.proona.ecobridge.velocity
 
 import com.velocitypowered.api.command.SimpleCommand
 import com.velocitypowered.api.proxy.Player
+import digital.proona.cacheClient.RuneCacheAPI
 import digital.proona.ecobridge.economy.PlayerEconomy
-import digital.proona.redisClient.RuneRedisAPI
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.format.TextColor
@@ -50,7 +50,7 @@ class MoneyCommand(private val plugin: EcoBridgeVelocityPlugin) : SimpleCommand 
                 pageList.forEachIndexed { index, (uuid, money) ->
                     val playerName = plugin.server.getPlayer(uuid).map { it.username }
                         .orElseGet {
-                            RuneRedisAPI.finder("rune", "player_names", uuid.toString()).getAll()?.get("name")
+                            RuneCacheAPI.finder("rune", "player_names", uuid.toString()).getAll()?.get("name")
                                 ?: uuid.toString()
                         }
 
@@ -91,7 +91,7 @@ class MoneyCommand(private val plugin: EcoBridgeVelocityPlugin) : SimpleCommand 
                 val targetPlayer = plugin.server.getPlayer(targetName).orElse(null)
 
                 val targetUuid = targetPlayer?.uniqueId ?: run {
-                    val redisData = RuneRedisAPI.finder("rune", "player_names", targetName).getAll()
+                    val redisData = RuneCacheAPI.finder("rune", "player_names", targetName).getAll()
                     redisData?.get("uuid")?.let { UUID.fromString(it) }
                 }
 
